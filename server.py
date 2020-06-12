@@ -17,10 +17,15 @@ def server():
     try:
         while True:
             events = selector.select(timeout=None)
-            for key, mask in events:
-                client, address = server_socket.accept()
-                client.setblocking(False)
-                handler(client)
+            for key, event in events:
+                if not key.data:
+                    client, address = server_socket.accept()
+                    client.setblocking(False)
+                    events = selectors.EVENT_READ | selectors.EVENT_WRITE
+                    selector.register(client, events, data={'address': address})
+                else:                    
+                    process_connection(key, event)
+                    # handler(client)
                 # Thread(target=handler, args=(client,)).start()
             
     except KeyboardInterrupt:
@@ -29,18 +34,24 @@ def server():
         selector.close()
 
 
-def handler(client):
-    print("Connected to ", client)
-    filesize = client.recv(2048)        
-    with open(str(uuid.uuid4()) + '.wav', 'wb') as f:
-        while True:
-            req = client.recv(int(filesize))
-            if not req:
-                break
-            f.write(req)
-            client.sendall(b'Received')                
-        client.close()
-        print('Closed connection')
+def process_connection(key, event):
+    client = key.fileobj
+    data = key.data
+
+    
+
+# def handler(client):
+#     print("Connected to ", client)
+#     filesize = client.recv(2048)        
+#     with open(str(uuid.uuid4()) + '.wav', 'wb') as f:
+#         while True:
+#             req = client.recv(int(filesize))
+#             if not req:
+#                 break
+#             f.write(req)
+#             client.sendall(b'Received')                
+#         client.close()
+#         print('Closed connection')
 
 
 if __name__ == "__main__":    
