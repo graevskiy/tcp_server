@@ -18,6 +18,9 @@ def client(file):
         print('sending', file)
         f_size = Path(file).stat().st_size
         print('file size', f_size)
+        print('going to sleep...')
+        time.sleep(30)
+        print('woke up!')
         s.sendall(str(f_size).encode('utf-8'))
         with open(file, 'rb') as f:
             s.sendall(f.read())
