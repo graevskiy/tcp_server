@@ -1,5 +1,4 @@
 import io
-import selectors
 import socket
 import uuid
 
@@ -8,8 +7,9 @@ from select import select
 HOST = '127.0.0.1'
 PORT = 25000
 
-wait_read = []
-wait_write = []
+wait_to_read = []
+wait_to_write = []
+
 
 def server():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -20,50 +20,53 @@ def server():
 
 
 def accept_wrapper(server_socket):
-
-    print('Before .accept()')
     client, address = server_socket.accept()                    
     print('Connection from', address)
 
-    wait_read.append(client)
+    wait_to_read.append(client)
 
 
-def send_msg(client):
-           
-    print('Before .recv()')
+# for checking purposes only
+def send_msg(client):           
     req = client.recv(4096)
     if req:
         response = 'Hi there\n'.encode()
         client.send(response)
     else:
+        wait_to_read.remove(client)
         client.close()
 
 
 def handler_wav(client):
-    filesize = client.recv(2048)        
     with open(str(uuid.uuid4()) + '.wav', 'wb') as f:
-        while True:
-            req = client.recv(int(filesize))
-            if not req:
-                break
+        n = 0
+        while True:            
+            req = client.recv(4096)
+            n += len(req)
+            print(n, len(req))
             f.write(req)
-            client.sendall(b'Received')                
-        client.close()
-        print('Closed connection')
+            if len(req) < 4096:
+                break
+    wait_to_read.remove(client)
+    client.send(b'All done')
+    client.close()        
+    print('Closed connection')
 
 
 def event_loop(server_socket):
     while True:
-        socks_read, socks_write, _ = select(wait_read, wait_write, [])
+        socks_read, socks_write, _ = select(wait_to_read, wait_to_write, [])
 
         for sock in socks_read:
+            print(sock)
             if sock is server_socket:
                 accept_wrapper(sock)
             else:
-                send_msg(sock)
+                # send_msg(sock)
+                handler_wav(sock)
 
 
-if __name__ == "__main__":    
+if __name__ == "__main__":
     s = server()
-    wait_read.append(s)
+    wait_to_read.append(s)
     event_loop(s)

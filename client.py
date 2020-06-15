@@ -1,7 +1,6 @@
 import sys
 import socket
 import time
-import wave
 
 from pathlib import Path
 
@@ -12,14 +11,17 @@ def create_socket():
     return s
 
 
-def client(file):
-    s = create_socket()
+def client(s, file, timeout=0):
     try:
         print('sending', file)
         f_size = Path(file).stat().st_size
         print('file size', f_size)
         print('going to sleep...')
-        time.sleep(30)
+        
+        for i in range(timeout):
+            print(timeout-i)
+            time.sleep(1)            
+
         print('woke up!')
         s.sendall(str(f_size).encode('utf-8'))
         with open(file, 'rb') as f:
@@ -33,6 +35,11 @@ def client(file):
 
 
 if __name__ == "__main__":
-    assert len(sys.argv) == 2
+
+    assert len(sys.argv) == 3
+    
     file = sys.argv[1]
-    client(file)
+    timeout = int(sys.argv[2])
+    
+    socket = create_socket()
+    client(socket, file, timeout)
