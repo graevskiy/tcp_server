@@ -12,10 +12,16 @@ from pathlib import Path
 # channels = 2
 # fs = 44100  # Record at 44100 samples per second
 
+HOST, PORT = '127.0.0.1', 25000
 
 def create_socket():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect(('127.0.0.1', 25000))
+    s.settimeout(2) # wait at most 2 seconds on connect to server
+    try:
+        s.connect((HOST, PORT))
+    except socket.timeout as e:
+        print(f'Connection to {HOST}:{PORT} failed')
+        sys.exit(1)
     return s
 
 
@@ -33,14 +39,28 @@ def client(s, file, timeout=0):
         with open(file, 'rb') as f:
             buf = f.read()
         
-        print('sending')
-        s.send(buf[0:len(buf)//2])
-        time.sleep(0.5)
-        s.send(buf[len(buf)//2:])
+        # print('sending')
+        # s.send(buf[0:len(buf)//2])
+        # print('sleep')
+        # time.sleep(1)
+        # print('wake up')
+        # s.send(buf[len(buf)//2:])
+        # print(len(buf), 'completed!!!')
         
+        sent = 0
+        while sent < len(buf):
+            try:
+                s.send(buf[sent:sent+1024])
+                sent += 1024
+            except KeyboardInterrupt:
+                print('Interrupted')
+                break
     finally:
-        print('close connection')
-        s.close()
+        pass
+        # print('pdb 1')
+        # breakpoint()
+        # print('close connection')
+        # s.close()
 
 
 def run_client(socket):
@@ -89,17 +109,17 @@ def client_recording(socket):
     # print('Finished recording')
     # socket.close()
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
     
-    assert len(sys.argv) >= 2
+#     assert len(sys.argv) >= 2
 
-    runner_dict = {
-        'client': run_client,
-        'client_rec': run_client_rec
-    }
+#     runner_dict = {
+#         'client': run_client,
+#         'client_rec': run_client_rec
+#     }
 
-    assert sys.argv[1] in runner_dict
+#     assert sys.argv[1] in runner_dict
 
-    socket = create_socket()
-    runner_dict[sys.argv[1]](socket)
+#     socket = create_socket()
+#     runner_dict[sys.argv[1]](socket)
     
