@@ -1,125 +1,63 @@
-# import pyaudio
-
-import sys
 import socket
-import time
 
 from pathlib import Path
 
 
-# chunk = 1024  # Record in chunks of 1024 samples
-# sample_format = pyaudio.paInt16  # 16 bits per sample
-# channels = 2
-# fs = 44100  # Record at 44100 samples per second
-
-HOST, PORT = '127.0.0.1', 25000
-
-def create_socket():
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.settimeout(2) # wait at most 2 seconds on connect to server
-    try:
-        s.connect((HOST, PORT))
-    except socket.timeout as e:
-        print(f'Connection to {HOST}:{PORT} failed')
-        sys.exit(1)
-    return s
+HOST = '127.0.0.1'
+PORT = 25000
 
 
-def client(s, file, timeout=0):
-    try:
-        print('file to send:', file)
-        f_size = Path(file).stat().st_size
-        print('file size:', f_size)        
+class Client:
+    def __init__(self, chunk_size=1024):
+        self.socket = None
+        self.file_buf = b''   
+        if chunk_size < 1:
+            raise ValueError("`chunk_size` should be a positive int")
+        self.chunk_size = chunk_size
 
-        print('countdown')        
-        for i in range(timeout):
-            print(timeout-i)
-            time.sleep(1)
-
-        with open(file, 'rb') as f:
-            buf = f.read()
+    def connect(self, host, port):
+        # disconnect from existing one if any
+        self.disconnect()
         
-        # print('sending')
-        # s.send(buf[0:len(buf)//2])
-        # print('sleep')
-        # time.sleep(1)
-        # print('wake up')
-        # s.send(buf[len(buf)//2:])
-        # print(len(buf), 'completed!!!')
+        self.host = host
+        self.port = port
         
-        sent = 0
-        while sent < len(buf):
-            try:
-                s.send(buf[sent:sent+1024])
-                sent += 1024
-            except KeyboardInterrupt:
-                print('Interrupted')
-                break
-    finally:
-        pass
-        # print('pdb 1')
-        # breakpoint()
-        # print('close connection')
-        # s.close()
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.settimeout(2) # wait at most 2 seconds on connect to server
+        try:
+            self.socket.connect((self.host, self.port))
+        except socket.timeout as e:
+            print(f'Connection to {self.host}:{self.port} failed')
+            return False
+        return True
 
+    def is_valid_file(self, file_name):
+        if not Path(file_name).is_file():
+            print(f"'{file_name}' is not a valid file")
+            return False
+        return True
 
-def run_client(socket):
-    assert len(sys.argv) == 4
-    file = sys.argv[2]
-    timeout = int(sys.argv[3])
-    
-    client(socket, file, timeout)
+    def send_file(self, file_name):
+        if self.is_valid_file(file_name):
+            with open(file_name, 'rb') as f:
+                self.file_buf = f.read()
+        else:
+            return False
 
+        if not self.socket: # or self.socket.closed:
+            self.connect()
 
-def run_client_rec(socket):
-    client_recording(socket)
+        with self.socket:
+            sent = 0
+            while sent < len(self.file_buf):
+                try:
+                    size_chunk = min(self.chunk_size, len(self.file_buf) - sent)
+                    self.socket.send(self.file_buf[sent:sent + size_chunk])
+                    sent += size_chunk
+                except KeyboardInterrupt:
+                    print('Interrupted')
+                    break
 
-
-def client_recording(socket):
-    pass
-    # p = pyaudio.PyAudio()  # Create an interface to PortAudio
-
-    # stream = p.open(format=sample_format,
-    #                 channels=channels,
-    #                 rate=fs,
-    #                 frames_per_buffer=chunk,
-    #                 input=True)
-
-    # print('Get prepared!')
-    # for i in range(3):
-    #     time.sleep(1)
-    #     print(3 - i)
-
-    # print('Start Recording')
-
-    # # recording 5 seconds
-    # n = 0
-    # with open('aaa.wav', 'wb') as f:
-    #     for i in range(0, int(fs / chunk * 5)):
-    #         if i % 1024 == 0:
-    #             n += 1
-    #             print(n)
-    #         data = stream.read(chunk)
-    #         f.write(data)
-    #         socket.send(data)
-
-
-    # stream.stop_stream()
-    # p.terminate()
-    # print('Finished recording')
-    # socket.close()
-
-# if __name__ == "__main__":
-    
-#     assert len(sys.argv) >= 2
-
-#     runner_dict = {
-#         'client': run_client,
-#         'client_rec': run_client_rec
-#     }
-
-#     assert sys.argv[1] in runner_dict
-
-#     socket = create_socket()
-#     runner_dict[sys.argv[1]](socket)
-    
+    def disconnect(self):
+        if self.socket and self.socket.fileno() > -1:
+            self.socket.close()
