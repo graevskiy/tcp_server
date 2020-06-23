@@ -28,6 +28,7 @@ class Client:
             self.socket.connect((self.host, self.port))
         except socket.timeout as e:
             print(f'Connection to {self.host}:{self.port} failed')
+            self.disconnect()
             return False
         return True
 
@@ -44,19 +45,23 @@ class Client:
         else:
             return False
 
-        if not self.socket: # or self.socket.closed:
-            self.connect()
+        if not self.socket:
+            print('No connection found') 
+            return False
 
-        with self.socket:
-            sent = 0
-            while sent < len(self.file_buf):
-                try:
-                    size_chunk = min(self.chunk_size, len(self.file_buf) - sent)
-                    self.socket.send(self.file_buf[sent:sent + size_chunk])
-                    sent += size_chunk
-                except KeyboardInterrupt:
-                    print('Interrupted')
-                    break
+        if self.socket.fileno() == -1:
+            if not self.connect(self.host, self.port):
+                return False
+
+        sent = 0
+        while sent < len(self.file_buf):
+            try:
+                size_chunk = min(self.chunk_size, len(self.file_buf) - sent)
+                self.socket.send(self.file_buf[sent:sent + size_chunk])
+                sent += size_chunk
+            except KeyboardInterrupt:
+                print('Interrupted')
+                break
 
     def disconnect(self):
         if self.socket and self.socket.fileno() > -1:

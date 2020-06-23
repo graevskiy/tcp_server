@@ -27,7 +27,6 @@ class SocketBundle:
         self.buf = buf
         self.func = func
 
-        @property
     def fileno(self):
         return self.sock.fileno()
 
@@ -36,7 +35,7 @@ class SocketBundle:
         return md5(self.buf).hexdigest()
 
     def __str__(self):
-        return f"sock={self.fileno}, buf={len(self.buf)}, func={self.func}"
+        return f"sock={self.fileno()}, buf={len(self.buf)}, func={self.func}"
 
 
 class Server:
@@ -85,7 +84,7 @@ class Server:
         print('closing connection')
         bundle.sock.close()
         
-        if bundle in wait_to_read:
+        if bundle in self.wait_to_read:
             self.wait_to_read.remove(bundle)
         if bundle.buf:
             self._bufs_ready_to_file.append(bundle.buf)
